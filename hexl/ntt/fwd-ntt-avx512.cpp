@@ -5,6 +5,7 @@
 
 #include <cstring>
 #include <functional>
+#include <iostream>
 #include <vector>
 
 #include "hexl/logging/logging.hpp"
@@ -260,6 +261,7 @@ void ForwardTransformToBitReverseAVX512(
 
   uint64_t twice_mod = modulus << 1;
 
+  std::cout << "hexl fork test !!" << std::endl;
   __m512i v_modulus = _mm512_set1_epi64(static_cast<int64_t>(modulus));
   __m512i v_neg_modulus = _mm512_set1_epi64(-static_cast<int64_t>(modulus));
   __m512i v_twice_mod = _mm512_set1_epi64(static_cast<int64_t>(twice_mod));
