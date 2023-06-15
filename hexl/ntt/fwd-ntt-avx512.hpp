@@ -40,6 +40,19 @@ void ForwardTransformToBitReverseAVX512(
     uint64_t output_mod_factor, uint64_t recursion_depth = 0,
     uint64_t recursion_half = 0);
 
+template <int BitShift>
+void ForwardTransformToBitReverseAVX512_stage1(
+    uint64_t *result, const uint64_t * operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads, uint64_t thread_idx);
+
+template <int BitShift>
+void ForwardTransformToBitReverseAVX512_stage2(
+    uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads,
+    uint64_t thread_idx);
+
 #endif  // HEXL_HAS_AVX512DQ
 
 }  // namespace hexl

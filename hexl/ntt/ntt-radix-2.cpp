@@ -290,6 +290,66 @@ void ReferenceForwardTransformToBitReverse(
   }
 }
 
+void ReferenceForwardTransformToBitReverseWithStartingM(
+    uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers, uint64_t start_m) {
+  HEXL_CHECK(NTT::CheckArguments(n, modulus), "");
+  HEXL_CHECK(root_of_unity_powers != nullptr,
+             "root_of_unity_powers == nullptr");
+  HEXL_CHECK(operand != nullptr, "operand == nullptr");
+
+  size_t t = (n >> int(1 + log2(start_m)));
+  for (size_t m = start_m; m < n; m <<= 1) {
+    size_t offset = 0;
+    for (size_t i = 0; i < m; i++) {
+      size_t offset2 = offset + t;
+      const uint64_t W = root_of_unity_powers[m + i];
+
+      uint64_t* X = operand + offset;
+      uint64_t* Y = X + t;
+      for (size_t j = offset; j < offset2; j++) {
+        // X', Y' = X + WY, X - WY (mod q).
+        uint64_t tx = *X;
+        uint64_t W_x_Y = MultiplyMod(*Y, W, modulus);
+        *X++ = AddUIntMod(tx, W_x_Y, modulus);
+        *Y++ = SubUIntMod(tx, W_x_Y, modulus);
+      }
+      offset += (t << 1);
+    }
+    t >>= 1;
+  }
+}
+
+void ReferenceForwardTransformToBitReverseWithEndingM(
+    uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers, uint64_t ending_m) {
+  HEXL_CHECK(NTT::CheckArguments(n, modulus), "");
+  HEXL_CHECK(root_of_unity_powers != nullptr,
+             "root_of_unity_powers == nullptr");
+  HEXL_CHECK(operand != nullptr, "operand == nullptr");
+
+  size_t t = (n >> 1);
+  for (size_t m = 1; m < ending_m; m <<= 1) {
+    size_t offset = 0;
+    for (size_t i = 0; i < m; i++) {
+      size_t offset2 = offset + t;
+      const uint64_t W = root_of_unity_powers[m + i];
+
+      uint64_t* X = operand + offset;
+      uint64_t* Y = X + t;
+      for (size_t j = offset; j < offset2; j++) {
+        // X', Y' = X + WY, X - WY (mod q).
+        uint64_t tx = *X;
+        uint64_t W_x_Y = MultiplyMod(*Y, W, modulus);
+        *X++ = AddUIntMod(tx, W_x_Y, modulus);
+        *Y++ = SubUIntMod(tx, W_x_Y, modulus);
+      }
+      offset += (t << 1);
+    }
+    t >>= 1;
+  }
+}
+
 void ReferenceInverseTransformFromBitReverse(
     uint64_t* operand, uint64_t n, uint64_t modulus,
     const uint64_t* inv_root_of_unity_powers) {

@@ -68,6 +68,12 @@ void ForwardTransformToBitReverseRadix4(
 void ReferenceForwardTransformToBitReverse(
     uint64_t* operand, uint64_t n, uint64_t modulus,
     const uint64_t* root_of_unity_powers);
+void ReferenceForwardTransformToBitReverseWithStartingM(
+    uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers, uint64_t starting_m);
+void ReferenceForwardTransformToBitReverseWithEndingM(
+    uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers, uint64_t starting_m);
 
 /// @brief Reference inverse NTT which is written for clarity rather than
 /// performance

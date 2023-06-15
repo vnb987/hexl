@@ -25,6 +25,17 @@ template void ForwardTransformToBitReverseAVX512<NTT::s_ifma_shift_bits>(
     const uint64_t* precon_root_of_unity_powers, uint64_t input_mod_factor,
     uint64_t output_mod_factor, uint64_t recursion_depth,
     uint64_t recursion_half);
+
+template void ForwardTransformToBitReverseAVX512_stage1<NTT::s_ifma_shift_bits>(
+    uint64_t *result, const uint64_t * operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads, uint64_t thread_idx);
+
+template void ForwardTransformToBitReverseAVX512_stage2<NTT::s_ifma_shift_bits>(
+    uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads,
+    uint64_t thread_idx);
 #endif
 
 #ifdef HEXL_HAS_AVX512DQ
@@ -41,6 +52,29 @@ template void ForwardTransformToBitReverseAVX512<NTT::s_default_shift_bits>(
     const uint64_t* precon_root_of_unity_powers, uint64_t input_mod_factor,
     uint64_t output_mod_factor, uint64_t recursion_depth,
     uint64_t recursion_half);
+
+template void ForwardTransformToBitReverseAVX512_stage1<32>(
+    uint64_t *result, const uint64_t * operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads, uint64_t thread_idx);
+
+template void ForwardTransformToBitReverseAVX512_stage2<32>(
+    uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads,
+    uint64_t thread_idx);
+
+template void ForwardTransformToBitReverseAVX512_stage1<NTT::s_default_shift_bits>(
+    uint64_t *result, const uint64_t * operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads, uint64_t thread_idx);
+
+template void ForwardTransformToBitReverseAVX512_stage2<NTT::s_default_shift_bits>(
+    uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads,
+    uint64_t thread_idx);
+
 #endif
 
 #ifdef HEXL_HAS_AVX512DQ
@@ -231,6 +265,53 @@ void FwdT8(uint64_t* result, const uint64_t* operand, __m512i v_neg_modulus,
   }
 }
 
+template <int BitShift, bool InputLessThanMod>
+void FwdT8Part(uint64_t* result, const uint64_t* operand, __m512i v_neg_modulus,
+           __m512i v_twice_mod, uint64_t t, uint64_t m, const uint64_t* W,
+           const uint64_t* W_precon, const uint64_t num_threads, const uint64_t thread_idx , const uint64_t thread_stride) {
+  size_t j1 = thread_stride * thread_idx;
+
+  HEXL_LOOP_UNROLL_4
+  for (size_t i = 0; i < m; i++) {
+    // Referencing operand
+    const uint64_t* X_op = operand + j1;
+    const uint64_t* Y_op = X_op + t;
+
+    // Referencing result
+    uint64_t* X_r = result + j1;
+    uint64_t* Y_r = X_r + t;
+
+
+    // Weights and weights' preconditions
+    __m512i v_W = _mm512_set1_epi64(static_cast<int64_t>(*W++));
+    __m512i v_W_precon = _mm512_set1_epi64(static_cast<int64_t>(*W_precon++));
+
+    // assume 8 | t
+    for (size_t k = 0; k < t / (num_threads * thread_stride); k++) {
+      const __m512i* v_X_op_pt = reinterpret_cast<const __m512i*>(X_op + k * num_threads * thread_stride);
+      const __m512i* v_Y_op_pt = reinterpret_cast<const __m512i*>(Y_op + k * num_threads * thread_stride);
+      
+      __m512i* v_X_r_pt = reinterpret_cast<__m512i*>(X_r + k * num_threads * thread_stride);
+      __m512i* v_Y_r_pt = reinterpret_cast<__m512i*>(Y_r + k * num_threads * thread_stride);
+      for (size_t j = thread_stride / 8; j > 0; --j) {
+        __m512i v_X = _mm512_loadu_si512(v_X_op_pt);
+        __m512i v_Y = _mm512_loadu_si512(v_Y_op_pt);
+
+        FwdButterfly<BitShift, InputLessThanMod>(&v_X, &v_Y, v_W, v_W_precon,
+                                                 v_neg_modulus, v_twice_mod);
+
+        _mm512_storeu_si512(v_X_r_pt++, v_X);
+        _mm512_storeu_si512(v_Y_r_pt++, v_Y);
+
+        // Increase operand pointers as well
+        v_X_op_pt++;
+        v_Y_op_pt++;
+      }
+    }
+    j1 += (t << 1);
+  }
+}
+
 template <int BitShift>
 void ForwardTransformToBitReverseAVX512(
     uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
@@ -261,7 +342,6 @@ void ForwardTransformToBitReverseAVX512(
 
   uint64_t twice_mod = modulus << 1;
 
-  std::cout << "hexl fork test !!" << std::endl;
   __m512i v_modulus = _mm512_set1_epi64(static_cast<int64_t>(modulus));
   __m512i v_neg_modulus = _mm512_set1_epi64(-static_cast<int64_t>(modulus));
   __m512i v_twice_mod = _mm512_set1_epi64(static_cast<int64_t>(twice_mod));
@@ -403,6 +483,47 @@ void ForwardTransformToBitReverseAVX512(
         precon_root_of_unity_powers, input_mod_factor, output_mod_factor,
         recursion_depth + 1, recursion_half * 2 + 1);
   }
+}
+
+template <int BitShift>
+void ForwardTransformToBitReverseAVX512_stage1(
+    uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads,
+    uint64_t thread_idx) {
+  HEXL_CHECK(NTT::CheckArguments(n, modulus), "[ERROR]: Invalid key pair, please check!");
+  HEXL_CHECK(int(log2(num_threads)) == log2(num_threads), "[ERROR]: num_threads must be power of two");
+  HEXL_CHECK(n >= ((8 * num_threads) * num_threads),
+             "[ERROR]: Operand length must be larger than (8 * num_threads) * num_threads");
+  uint64_t twice_mod = modulus << 1;
+  __m512i v_modulus = _mm512_set1_epi64(static_cast<int64_t>(modulus));
+  __m512i v_neg_modulus = _mm512_set1_epi64(-static_cast<int64_t>(modulus));
+  __m512i v_twice_mod = _mm512_set1_epi64(static_cast<int64_t>(twice_mod));
+  size_t t = (n >> 1);
+  // Copy for out-of-place in case m is <= base_ntt_size from start
+  if (result != operand){
+    std::memcpy(result, operand, n * sizeof(uint64_t));
+  }
+  // initial address offset for each thread
+  uint64_t thread_stride = n / num_threads / num_threads;
+  for (int m = 1; m < num_threads; m <<= 1) {
+    const uint64_t* W = &root_of_unity_powers[m];
+    const uint64_t* W_precon = &precon_root_of_unity_powers[m];
+    FwdT8Part<BitShift, false>(result, result, v_neg_modulus, v_twice_mod, t,
+                               m, W, W_precon, num_threads, thread_idx, thread_stride);
+    t >>= 1;
+  }
+}
+
+template <int BitShift>
+void ForwardTransformToBitReverseAVX512_stage2(
+    uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* root_of_unity_powers,
+    const uint64_t* precon_root_of_unity_powers, uint64_t num_threads,
+    uint64_t thread_idx) {
+  uint64_t recursion_depth = log2(num_threads);
+  ForwardTransformToBitReverseAVX512<BitShift>(&result[n / num_threads * thread_idx], &operand[n / num_threads * thread_idx], n / num_threads, modulus, 
+  root_of_unity_powers, precon_root_of_unity_powers, 1, 1, recursion_depth, thread_idx);
 }
 
 #endif  // HEXL_HAS_AVX512DQ

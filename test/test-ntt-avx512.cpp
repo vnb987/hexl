@@ -179,6 +179,7 @@ TEST_P(NttAVX512Test, FwdNTT_AVX512IFMA) {
         GenerateInsecureUniformIntRandomValues(m_N, 0, m_modulus);
     AlignedVector64<uint64_t> input_ifma = input64;
     AlignedVector64<uint64_t> input_ifma_lazy = input64;
+    AlignedVector64<uint64_t> input_ifma_custom = input64;
     AlignedVector64<uint64_t> exp_output(m_N, 0);
 
     // Compute reference
@@ -190,6 +191,34 @@ TEST_P(NttAVX512Test, FwdNTT_AVX512IFMA) {
         input_ifma.data(), input_ifma.data(), m_N, m_ntt.GetModulus(),
         m_ntt.GetAVX512RootOfUnityPowers().data(),
         m_ntt.GetAVX512Precon52RootOfUnityPowers().data(), 1, 1);
+    int num_thread = 8;
+    // for(auto& elem : input_ifma_custom){
+    //   std::cout << elem << std::endl;
+    // }
+    // ReferenceForwardTransformToBitReverseWithEndingM(input_ifma_custom.data(), m_N, m_modulus, m_ntt.GetRootOfUnityPowers().data(), 8);
+    for(int i = 0; i < num_thread; i++){
+      ForwardTransformToBitReverseAVX512_stage1<52>(
+          input_ifma_custom.data(), input_ifma_custom.data(), m_N,
+          m_ntt.GetModulus(), m_ntt.GetAVX512RootOfUnityPowers().data(),
+          m_ntt.GetAVX512Precon52RootOfUnityPowers().data(), num_thread, i);
+    }
+    std::cout << "stage 1 end" << std::endl;
+    // for(auto& elem : input_ifma_custom){
+    //   std::cout << elem << std::endl;
+    // }
+
+    // ReferenceForwardTransformToBitReverseWithStartingM(input_ifma_custom.data(), m_N, m_modulus, m_ntt.GetRootOfUnityPowers().data(), 8);
+    for(int i = 0; i < num_thread; i++){
+      ForwardTransformToBitReverseAVX512_stage2<52>(
+        input_ifma_custom.data(), input_ifma_custom.data(), m_N,
+        m_ntt.GetModulus(), m_ntt.GetAVX512RootOfUnityPowers().data(),
+        m_ntt.GetAVX512Precon52RootOfUnityPowers().data(), num_thread, i);
+    }
+    std::cout << "stage 2 end" << std::endl;
+    // for(auto& elem : input_ifma_custom){
+    //   std::cout << elem << std::endl;
+    // }
+    
 
     // Compute lazy
     ForwardTransformToBitReverseAVX512<52>(
@@ -202,6 +231,7 @@ TEST_P(NttAVX512Test, FwdNTT_AVX512IFMA) {
 
     AssertEqual(input64, input_ifma);
     AssertEqual(input64, input_ifma_lazy);
+    AssertEqual(input64, input_ifma_custom);
   }
 }
 
