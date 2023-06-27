@@ -299,7 +299,7 @@ void ReferenceForwardTransformToBitReverseWithStartingM(
              "root_of_unity_powers == nullptr");
   HEXL_CHECK(operand != nullptr, "operand == nullptr");
 
-  size_t t = (n >> int(1 + log2(start_m)));
+  size_t t = (n >> int(1 + int(log2(double(start_m)))));
   for (size_t m = start_m; m < n; m <<= 1) {
     size_t offset = 0;
     for (size_t i = 0; i < m; i++) {

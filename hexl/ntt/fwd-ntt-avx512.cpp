@@ -496,7 +496,6 @@ void ForwardTransformToBitReverseAVX512_stage1(
   HEXL_CHECK(n >= ((8 * num_threads) * num_threads),
              "[ERROR]: Operand length must be larger than (8 * num_threads) * num_threads");
   uint64_t twice_mod = modulus << 1;
-  __m512i v_modulus = _mm512_set1_epi64(static_cast<int64_t>(modulus));
   __m512i v_neg_modulus = _mm512_set1_epi64(-static_cast<int64_t>(modulus));
   __m512i v_twice_mod = _mm512_set1_epi64(static_cast<int64_t>(twice_mod));
   size_t t = (n >> 1);
@@ -506,7 +505,7 @@ void ForwardTransformToBitReverseAVX512_stage1(
   }
   // initial address offset for each thread
   uint64_t thread_stride = n / num_threads / num_threads;
-  for (int m = 1; m < num_threads; m <<= 1) {
+  for (uint64_t m = 1; m < num_threads; m <<= 1) {
     const uint64_t* W = &root_of_unity_powers[m];
     const uint64_t* W_precon = &precon_root_of_unity_powers[m];
     FwdT8Part<BitShift, false>(result, result, v_neg_modulus, v_twice_mod, t,
@@ -521,7 +520,7 @@ void ForwardTransformToBitReverseAVX512_stage2(
     const uint64_t* root_of_unity_powers,
     const uint64_t* precon_root_of_unity_powers, uint64_t num_threads,
     uint64_t thread_idx) {
-  uint64_t recursion_depth = log2(num_threads);
+  uint64_t recursion_depth = uint64_t(log2(double(num_threads)));
   ForwardTransformToBitReverseAVX512<BitShift>(&result[n / num_threads * thread_idx], &operand[n / num_threads * thread_idx], n / num_threads, modulus, 
   root_of_unity_powers, precon_root_of_unity_powers, 1, 1, recursion_depth, thread_idx);
 }

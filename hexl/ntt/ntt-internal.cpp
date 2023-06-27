@@ -249,6 +249,123 @@ void NTT::ComputeForward(uint64_t* result, const uint64_t* operand,
       precon_root_of_unity_powers, input_mod_factor, output_mod_factor);
 }
 
+void NTT::ComputeForward_stage1(uint64_t* result, const uint64_t* operand,
+                        uint64_t num_thread, uint64_t thread_idx) {
+  HEXL_CHECK(result != nullptr, "result == nullptr");
+  HEXL_CHECK(operand != nullptr, "operand == nullptr");
+  HEXL_CHECK(
+      input_mod_factor == 1 || input_mod_factor == 2 || input_mod_factor == 4,
+      "input_mod_factor must be 1, 2 or 4; got " << input_mod_factor);
+  HEXL_CHECK(output_mod_factor == 1 || output_mod_factor == 4,
+             "output_mod_factor must be 1 or 4; got " << output_mod_factor);
+  HEXL_CHECK_BOUNDS(
+      operand, m_degree, m_q * input_mod_factor,
+      "value in operand exceeds bound " << m_q * input_mod_factor);
+  HEXL_CHECK(n >= 8 * num_thread * num_thread, "[ERROR] num_thread bound error");
+
+#ifdef HEXL_HAS_AVX512IFMA
+  if (has_avx512ifma && (m_q < s_max_fwd_ifma_modulus && (m_degree >= 16))) {
+    const uint64_t* root_of_unity_powers = GetAVX512RootOfUnityPowers().data();
+    const uint64_t* precon_root_of_unity_powers =
+        GetAVX512Precon52RootOfUnityPowers().data();
+
+    HEXL_VLOG(3, "Calling 52-bit AVX512-IFMA FwdNTT");
+    ForwardTransformToBitReverseAVX512_stage1<s_ifma_shift_bits>(
+        result, operand, m_degree, m_q, root_of_unity_powers,
+        precon_root_of_unity_powers, num_thread, thread_idx);
+    return;
+  }
+#endif
+
+#ifdef HEXL_HAS_AVX512DQ
+  if (has_avx512dq && m_degree >= 16) {
+    if (m_q < s_max_fwd_32_modulus) {
+      HEXL_VLOG(3, "Calling 32-bit AVX512-DQ FwdNTT");
+      const uint64_t* root_of_unity_powers =
+          GetAVX512RootOfUnityPowers().data();
+      const uint64_t* precon_root_of_unity_powers =
+          GetAVX512Precon32RootOfUnityPowers().data();
+      ForwardTransformToBitReverseAVX512_stage1<32>(
+          result, operand, m_degree, m_q, root_of_unity_powers,
+          precon_root_of_unity_powers, num_thread, thread_idx);
+    } else {
+      HEXL_VLOG(3, "Calling 64-bit AVX512-DQ FwdNTT");
+      const uint64_t* root_of_unity_powers =
+          GetAVX512RootOfUnityPowers().data();
+      const uint64_t* precon_root_of_unity_powers =
+          GetAVX512Precon64RootOfUnityPowers().data();
+
+      ForwardTransformToBitReverseAVX512_stage1<s_default_shift_bits>(
+          result, operand, m_degree, m_q, root_of_unity_powers,
+          precon_root_of_unity_powers, num_thread, thread_idx);
+    }
+    return;
+  }
+#endif
+
+  HEXL_VLOG(3, "Calling ForwardTransformToBitReverseRadix2");
+  HEXL_CHECK(false, "[ERROR] Unimplemented\n");
+}
+
+
+void NTT::ComputeForward_stage2(uint64_t* result, const uint64_t* operand,
+                        uint64_t num_thread, uint64_t thread_idx) {
+  HEXL_CHECK(result != nullptr, "result == nullptr");
+  HEXL_CHECK(operand != nullptr, "operand == nullptr");
+  HEXL_CHECK(
+      input_mod_factor == 1 || input_mod_factor == 2 || input_mod_factor == 4,
+      "input_mod_factor must be 1, 2 or 4; got " << input_mod_factor);
+  HEXL_CHECK(output_mod_factor == 1 || output_mod_factor == 4,
+             "output_mod_factor must be 1 or 4; got " << output_mod_factor);
+  HEXL_CHECK_BOUNDS(
+      operand, m_degree, m_q * input_mod_factor,
+      "value in operand exceeds bound " << m_q * input_mod_factor);
+  HEXL_CHECK(n >= 8 * num_thread * num_thread, "[ERROR] num_thread bound error");
+
+#ifdef HEXL_HAS_AVX512IFMA
+  if (has_avx512ifma && (m_q < s_max_fwd_ifma_modulus && (m_degree >= 16))) {
+    const uint64_t* root_of_unity_powers = GetAVX512RootOfUnityPowers().data();
+    const uint64_t* precon_root_of_unity_powers =
+        GetAVX512Precon52RootOfUnityPowers().data();
+
+    HEXL_VLOG(3, "Calling 52-bit AVX512-IFMA FwdNTT");
+    ForwardTransformToBitReverseAVX512_stage2<s_ifma_shift_bits>(
+        result, operand, m_degree, m_q, root_of_unity_powers,
+        precon_root_of_unity_powers, num_thread, thread_idx);
+    return;
+  }
+#endif
+
+#ifdef HEXL_HAS_AVX512DQ
+  if (has_avx512dq && m_degree >= 16) {
+    if (m_q < s_max_fwd_32_modulus) {
+      HEXL_VLOG(3, "Calling 32-bit AVX512-DQ FwdNTT");
+      const uint64_t* root_of_unity_powers =
+          GetAVX512RootOfUnityPowers().data();
+      const uint64_t* precon_root_of_unity_powers =
+          GetAVX512Precon32RootOfUnityPowers().data();
+      ForwardTransformToBitReverseAVX512_stage2<32>(
+          result, operand, m_degree, m_q, root_of_unity_powers,
+          precon_root_of_unity_powers, num_thread, thread_idx);
+    } else {
+      HEXL_VLOG(3, "Calling 64-bit AVX512-DQ FwdNTT");
+      const uint64_t* root_of_unity_powers =
+          GetAVX512RootOfUnityPowers().data();
+      const uint64_t* precon_root_of_unity_powers =
+          GetAVX512Precon64RootOfUnityPowers().data();
+
+      ForwardTransformToBitReverseAVX512_stage2<s_default_shift_bits>(
+          result, operand, m_degree, m_q, root_of_unity_powers,
+          precon_root_of_unity_powers, num_thread, thread_idx);
+    }
+    return;
+  }
+#endif
+
+  HEXL_VLOG(3, "Calling ForwardTransformToBitReverseRadix2");
+  HEXL_CHECK(false, "[ERROR] Unimplemented\n");
+}
+
 void NTT::ComputeInverse(uint64_t* result, const uint64_t* operand,
                          uint64_t input_mod_factor,
                          uint64_t output_mod_factor) {
@@ -307,6 +424,114 @@ void NTT::ComputeInverse(uint64_t* result, const uint64_t* operand,
   InverseTransformFromBitReverseRadix2(
       result, operand, m_degree, m_q, inv_root_of_unity_powers,
       precon_inv_root_of_unity_powers, input_mod_factor, output_mod_factor);
+}
+
+void NTT::ComputeInverse_stage1(uint64_t* result, const uint64_t* operand,
+                         uint64_t num_thread, uint64_t thread_idx) {
+  HEXL_CHECK(result != nullptr, "result == nullptr");
+  HEXL_CHECK(operand != nullptr, "operand == nullptr");
+  HEXL_CHECK(input_mod_factor == 1 || input_mod_factor == 2,
+             "input_mod_factor must be 1 or 2; got " << input_mod_factor);
+  HEXL_CHECK(output_mod_factor == 1 || output_mod_factor == 2,
+             "output_mod_factor must be 1 or 2; got " << output_mod_factor);
+  HEXL_CHECK_BOUNDS(operand, m_degree, m_q * input_mod_factor,
+                    "operand exceeds bound " << m_q * input_mod_factor);
+
+#ifdef HEXL_HAS_AVX512IFMA
+  if (has_avx512ifma && (m_q < s_max_inv_ifma_modulus) && (m_degree >= 16)) {
+    HEXL_VLOG(3, "Calling 52-bit AVX512-IFMA InvNTT");
+    const uint64_t* inv_root_of_unity_powers = GetInvRootOfUnityPowers().data();
+    const uint64_t* precon_inv_root_of_unity_powers =
+        GetPrecon52InvRootOfUnityPowers().data();
+    InverseTransformFromBitReverseAVX512_stage1<s_ifma_shift_bits>(
+        result, operand, m_degree, m_q, inv_root_of_unity_powers,
+        precon_inv_root_of_unity_powers, num_thread, thread_idx);
+    return;
+  }
+#endif
+
+#ifdef HEXL_HAS_AVX512DQ
+  if (has_avx512dq && m_degree >= 16) {
+    if (m_q < s_max_inv_32_modulus) {
+      HEXL_VLOG(3, "Calling 32-bit AVX512-DQ InvNTT");
+      const uint64_t* inv_root_of_unity_powers =
+          GetInvRootOfUnityPowers().data();
+      const uint64_t* precon_inv_root_of_unity_powers =
+          GetPrecon32InvRootOfUnityPowers().data();
+      InverseTransformFromBitReverseAVX512_stage1<32>(
+          result, operand, m_degree, m_q, inv_root_of_unity_powers,
+          precon_inv_root_of_unity_powers, num_thread, thread_idx);
+    } else {
+      HEXL_VLOG(3, "Calling 64-bit AVX512 InvNTT");
+      const uint64_t* inv_root_of_unity_powers =
+          GetInvRootOfUnityPowers().data();
+      const uint64_t* precon_inv_root_of_unity_powers =
+          GetPrecon64InvRootOfUnityPowers().data();
+
+      InverseTransformFromBitReverseAVX512_stage1<s_default_shift_bits>(
+          result, operand, m_degree, m_q, inv_root_of_unity_powers,
+          precon_inv_root_of_unity_powers, num_thread, thread_idx);
+    }
+    return;
+  }
+#endif
+
+  HEXL_VLOG(3, "Calling 64-bit default InvNTT");
+  HEXL_CHECK(false, "[ERROR] Unimplemented\n");
+}
+
+void NTT::ComputeInverse_stage2(uint64_t* result, const uint64_t* operand,
+                         uint64_t num_thread, uint64_t thread_idx) {
+  HEXL_CHECK(result != nullptr, "result == nullptr");
+  HEXL_CHECK(operand != nullptr, "operand == nullptr");
+  HEXL_CHECK(input_mod_factor == 1 || input_mod_factor == 2,
+             "input_mod_factor must be 1 or 2; got " << input_mod_factor);
+  HEXL_CHECK(output_mod_factor == 1 || output_mod_factor == 2,
+             "output_mod_factor must be 1 or 2; got " << output_mod_factor);
+  HEXL_CHECK_BOUNDS(operand, m_degree, m_q * input_mod_factor,
+                    "operand exceeds bound " << m_q * input_mod_factor);
+
+#ifdef HEXL_HAS_AVX512IFMA
+  if (has_avx512ifma && (m_q < s_max_inv_ifma_modulus) && (m_degree >= 16)) {
+    HEXL_VLOG(3, "Calling 52-bit AVX512-IFMA InvNTT");
+    const uint64_t* inv_root_of_unity_powers = GetInvRootOfUnityPowers().data();
+    const uint64_t* precon_inv_root_of_unity_powers =
+        GetPrecon52InvRootOfUnityPowers().data();
+    InverseTransformFromBitReverseAVX512_stage2<s_ifma_shift_bits>(
+        result, operand, m_degree, m_q, inv_root_of_unity_powers,
+        precon_inv_root_of_unity_powers, num_thread, thread_idx);
+    return;
+  }
+#endif
+
+#ifdef HEXL_HAS_AVX512DQ
+  if (has_avx512dq && m_degree >= 16) {
+    if (m_q < s_max_inv_32_modulus) {
+      HEXL_VLOG(3, "Calling 32-bit AVX512-DQ InvNTT");
+      const uint64_t* inv_root_of_unity_powers =
+          GetInvRootOfUnityPowers().data();
+      const uint64_t* precon_inv_root_of_unity_powers =
+          GetPrecon32InvRootOfUnityPowers().data();
+      InverseTransformFromBitReverseAVX512_stage2<32>(
+          result, operand, m_degree, m_q, inv_root_of_unity_powers,
+          precon_inv_root_of_unity_powers, num_thread, thread_idx);
+    } else {
+      HEXL_VLOG(3, "Calling 64-bit AVX512 InvNTT");
+      const uint64_t* inv_root_of_unity_powers =
+          GetInvRootOfUnityPowers().data();
+      const uint64_t* precon_inv_root_of_unity_powers =
+          GetPrecon64InvRootOfUnityPowers().data();
+
+      InverseTransformFromBitReverseAVX512_stage2<s_default_shift_bits>(
+          result, operand, m_degree, m_q, inv_root_of_unity_powers,
+          precon_inv_root_of_unity_powers, num_thread, thread_idx);
+    }
+    return;
+  }
+#endif
+
+  HEXL_VLOG(3, "Calling 64-bit default InvNTT");
+  HEXL_CHECK(false, "[ERROR] Unimplemented\n");
 }
 
 }  // namespace hexl

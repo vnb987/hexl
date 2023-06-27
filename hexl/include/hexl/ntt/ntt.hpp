@@ -98,6 +98,10 @@ class NTT {
   /// output_mod_factor * q). Must be 1 or 4.
   void ComputeForward(uint64_t* result, const uint64_t* operand,
                       uint64_t input_mod_factor, uint64_t output_mod_factor);
+  void ComputeForward_stage1(uint64_t* result, const uint64_t* operand,
+                      uint64_t num_thread, uint64_t thread_idx);
+  void ComputeForward_stage2(uint64_t* result, const uint64_t* operand,
+                      uint64_t num_thread, uint64_t thread_idx);
 
   /// Compute inverse NTT. Results are bit-reversed.
   /// @param[out] result Stores the result
@@ -108,6 +112,10 @@ class NTT {
   /// output_mod_factor * q). Must be 1 or 2.
   void ComputeInverse(uint64_t* result, const uint64_t* operand,
                       uint64_t input_mod_factor, uint64_t output_mod_factor);
+  void ComputeInverse_stage1(uint64_t* result, const uint64_t* operand,
+                      uint64_t num_thread, uint64_t thread_idx);
+  void ComputeInverse_stage2(uint64_t* result, const uint64_t* operand,
+                      uint64_t num_thread, uint64_t thread_idx);             
 
   /// @brief Returns the minimal 2N'th root of unity
   uint64_t GetMinimalRootOfUnity() const { return m_w; }
