@@ -226,7 +226,6 @@ void FwdT8(uint64_t* result, const uint64_t* operand, __m512i v_neg_modulus,
            const uint64_t* W_precon) {
   size_t j1 = 0;
 
-  HEXL_LOOP_UNROLL_4
   for (size_t i = 0; i < m; i++) {
     // Referencing operand
     const uint64_t* X_op = operand + j1;
@@ -247,6 +246,7 @@ void FwdT8(uint64_t* result, const uint64_t* operand, __m512i v_neg_modulus,
     __m512i v_W_precon = _mm512_set1_epi64(static_cast<int64_t>(*W_precon++));
 
     // assume 8 | t
+    HEXL_LOOP_UNROLL_4
     for (size_t j = t / 8; j > 0; --j) {
       __m512i v_X = _mm512_loadu_si512(v_X_op_pt);
       __m512i v_Y = _mm512_loadu_si512(v_Y_op_pt);
@@ -271,7 +271,6 @@ void FwdT8Part(uint64_t* result, const uint64_t* operand, __m512i v_neg_modulus,
            const uint64_t* W_precon, const uint64_t num_threads, const uint64_t thread_idx , const uint64_t thread_stride) {
   size_t j1 = thread_stride * thread_idx;
 
-  HEXL_LOOP_UNROLL_4
   for (size_t i = 0; i < m; i++) {
     // Referencing operand
     const uint64_t* X_op = operand + j1;
@@ -287,6 +286,7 @@ void FwdT8Part(uint64_t* result, const uint64_t* operand, __m512i v_neg_modulus,
     __m512i v_W_precon = _mm512_set1_epi64(static_cast<int64_t>(*W_precon++));
 
     // assume 8 | t
+    HEXL_LOOP_UNROLL_4
     for (size_t k = 0; k < t / (num_threads * thread_stride); k++) {
       const __m512i* v_X_op_pt = reinterpret_cast<const __m512i*>(X_op + k * num_threads * thread_stride);
       const __m512i* v_Y_op_pt = reinterpret_cast<const __m512i*>(Y_op + k * num_threads * thread_stride);

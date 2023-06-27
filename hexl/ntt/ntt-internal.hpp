@@ -107,6 +107,18 @@ void InverseTransformFromBitReverseRadix2(
     const uint64_t* precon_inv_root_of_unity_powers,
     uint64_t input_mod_factor = 1, uint64_t output_mod_factor = 1);
 
+void InverseTransformFromBitReverseRadix2WithStartingM(
+    uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* inv_root_of_unity_powers,
+    const uint64_t* precon_inv_root_of_unity_powers, uint64_t starting_m,
+    uint64_t input_mod_factor = 1, uint64_t output_mod_factor = 1);
+
+void InverseTransformFromBitReverseRadix2WithEndingM(
+    uint64_t* result, const uint64_t* operand, uint64_t n, uint64_t modulus,
+    const uint64_t* inv_root_of_unity_powers,
+    const uint64_t* precon_inv_root_of_unity_powers, uint64_t ending_m,
+    uint64_t input_mod_factor = 1, uint64_t output_mod_factor = 1);
+
 /// @brief Radix-4 native C++ NTT implementation of the inverse NTT
 /// @param[out] result Output data. Overwritten with NTT output
 /// @param[in] operand Input data.
